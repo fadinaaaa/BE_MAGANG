@@ -13,7 +13,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/validate-token', [AuthController::class, 'validateToken']);
 });
-
+Route::get('/vendors/export', [VendorController::class, 'export'])->name('vendors.export');
+Route::get('/items/export', [ItemController::class, 'export']);
 
 Route::middleware('auth:sanctum')->group(function () {
     // Item
@@ -22,6 +23,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/items/{id}', [ItemController::class, 'show']);
     Route::put('/items/{id}', [ItemController::class, 'update']);
     Route::delete('/items/{id}', [ItemController::class, 'destroy']);
+    Route::post('items/import', [ItemController::class, 'import'])->name('items.import');
+
 
     // Vendor
     Route::get('/vendors', [VendorController::class, 'index']);
@@ -29,8 +32,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/vendors/{id}', [VendorController::class, 'show']);
     Route::put('/vendors/{id}', [VendorController::class, 'update']);
     Route::delete('/vendors/{id}', [VendorController::class, 'destroy']);
+    Route::post('vendors/import', [VendorController::class, 'import'])->name('vendors.import');
+
 });
 
 Route::middleware('auth:sanctum')->group (function (){
     Route::post('/ahs', [AhsWithItemsController::class, 'create']);
 });
+

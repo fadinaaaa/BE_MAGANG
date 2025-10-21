@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('vendors', function (Blueprint $table) {
             $table->id('vendor_id'); // ID Vendor
+            $table->string('vendor_no')->unique(); // Nomor Vendor (unik)
             $table->string('vendor_name'); // Nama Vendor
             $table->string('contact_name'); // Nama Kontak
             $table->string('contact_no'); // Nomor Kontak

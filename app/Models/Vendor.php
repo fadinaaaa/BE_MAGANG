@@ -16,6 +16,7 @@ class Vendor extends Model
      * Kolom yang bisa diisi (mass assignment).
      */
     protected $fillable = [
+        'vendor_no',
         'vendor_name',
         'contact_name',
         'contact_no',

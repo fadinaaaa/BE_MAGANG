@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('items', function (Blueprint $table) {
             $table->id('item_id'); // ID ITEM
+            $table->string('item_no')->unique(); // Nomor Item (ditambahkan)
             $table->string('ahs'); // AHS
             $table->string('deskripsi'); // Deskripsi
             $table->string('merek'); // Merek
@@ -23,11 +24,9 @@ return new class extends Migration
             $table->year('tahun'); // Tahun
 
             // Produk Info (foto bisa lebih dari 1 → json)
-            $table->json('produk_foto')->nullable(); 
-            $table->text('produk_deskripsi')->nullable(); 
+            $table->json('produk_foto')->nullable();
+            $table->text('produk_deskripsi')->nullable();
             $table->json('produk_dokumen')->nullable(); // untuk file dokumen (SNI dll)
-            $table->json('produk_hitungan')->nullable(); // jika ada perhitungan tambahan
-
             // Spesifikasi
             $table->string('spesifikasi')->nullable(); // contoh: "SNI No. 1234/2025"
 

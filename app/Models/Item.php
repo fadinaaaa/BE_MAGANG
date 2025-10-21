@@ -13,6 +13,7 @@ class Item extends Model
     protected $primaryKey = 'item_id'; // sesuaikan dengan migrasi kamu
 
     protected $fillable = [
+        'item_no',
         'ahs',
         'deskripsi',
         'merek',
@@ -24,7 +25,6 @@ class Item extends Model
         'produk_foto',
         'produk_deskripsi',
         'produk_dokumen',
-        'produk_hitungan',
         'spesifikasi',
     ];
 
@@ -33,7 +33,6 @@ class Item extends Model
         'tahun' => 'integer',
         'produk_foto' => 'array',
         'produk_dokumen' => 'array',
-        'produk_hitungan' => 'array',
     ];
 
     /**
