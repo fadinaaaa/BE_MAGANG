@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('ahs_items', function (Blueprint $table) {
             $table->id('ahs_item_id'); // Primary key detail
             $table->unsignedBigInteger('ahs_id'); // Relasi ke AHS
-            $table->unsignedBigInteger('item_id')->nullable(); // ID item (opsional relasi ke tabel items)
+            $table->unsignedBigInteger('item_id'); // ID item (opsional relasi ke tabel items)
             $table->string('uraian'); // Uraian item
             $table->string('satuan'); // Satuan
             $table->decimal('volume', 15, 2); // Volume

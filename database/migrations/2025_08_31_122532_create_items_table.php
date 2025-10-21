@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('item_no')->unique(); // Nomor Item (ditambahkan)
             $table->string('ahs'); // AHS
             $table->string('deskripsi'); // Deskripsi
-            $table->string('merek'); // Merek
+            $table->string('merek')->nullable(); // Merek
             $table->string('satuan'); // Satuan
             $table->decimal('hpp', 15, 2); // HPP (Harga Pokok Produksi)
             $table->unsignedBigInteger('vendor_id')->nullable(); // Relasi ke vendor

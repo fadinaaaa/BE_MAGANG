@@ -34,9 +34,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/vendors/{id}', [VendorController::class, 'destroy']);
     Route::post('vendors/import', [VendorController::class, 'import'])->name('vendors.import');
 
-});
+    //AHS
+    Route::get('/ahs', [AhsWithItemsController::class, 'get_data_ahs']);
+    Route::get('/ahs/option-item', [AhsWithItemsController::class, 'getOptionItem']);
+    Route::post('/ahs', [AhsWithItemsController::class, 'addDataAhs']);
+    Route::put('/ahs/{ahs_id}', [AhsWithItemsController::class, 'update']);
+    Route::delete('/{ahs_id}', [AhsWithItemsController::class, 'destroy']);
 
-Route::middleware('auth:sanctum')->group (function (){
-    Route::post('/ahs', [AhsWithItemsController::class, 'create']);
 });
 
