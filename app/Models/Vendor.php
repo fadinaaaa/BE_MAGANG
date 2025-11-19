@@ -21,7 +21,8 @@ class Vendor extends Model
         'contact_name',
         'contact_no',
         'email',
-        'wilayah',
+        'provinsi', // Ditambahkan
+        'kab', // Menggantikan 'wilayah'
         'tahun',
     ];
 

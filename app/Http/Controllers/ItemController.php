@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Item;
+use App\Models\Vendor; // --- PERUBAHAN: Import model Vendor ---
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -12,7 +13,9 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\ItemsExport;
 use App\Imports\ItemsImport;
 use Maatwebsite\Excel\Validators\ValidationException;
-use Throwable; // Import Throwable untuk menangkap semua jenis error
+use Maatwebsite\Excel\Excel as ExcelFormat;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Throwable;
 
 class ItemController extends Controller
 {
@@ -21,18 +24,23 @@ class ItemController extends Controller
      */
     public function index(Request $request)
     {
-        // Validasi input filter (opsional tapi praktik yang baik)
+        // ... (Tidak ada perubahan di sini)
+
         $request->validate([
-            'wilayah' => 'nullable|string|max:255',
-            'tahun'   => 'nullable|integer',
-            'item_no' => 'nullable|string', // Filter berdasarkan item_no
+            'provinsi' => 'nullable|string|max:255',
+            'kab'      => 'nullable|string|max:255',
+            'tahun'    => 'nullable|integer',
+            'item_no'  => 'nullable|string',
         ]);
 
         $query = Item::with('vendor');
 
-        // Menggunakan when() untuk query yang lebih bersih
-        $query->when($request->filled('wilayah'), function ($q) use ($request) {
-            return $q->where('wilayah', $request->wilayah);
+        $query->when($request->filled('provinsi'), function ($q) use ($request) {
+            return $q->where('provinsi', $request->provinsi);
+        });
+
+        $query->when($request->filled('kab'), function ($q) use ($request) {
+            return $q->where('kab', $request->kab);
         });
 
         $query->when($request->filled('tahun'), function ($q) use ($request) {
@@ -54,9 +62,6 @@ class ItemController extends Controller
     /**
      * Simpan Item baru.
      */
-    /**
-     * Simpan Item baru.
-     */
     public function store(Request $request)
     {
         try {
@@ -66,8 +71,11 @@ class ItemController extends Controller
                 'merek'            => 'nullable|string',
                 'satuan'           => 'required|string',
                 'hpp'              => 'required|numeric',
-                'vendor_id'        => 'nullable|integer|exists:vendors,vendor_id',
-                'wilayah'          => 'nullable|string',
+                // --- PERUBAHAN: Validasi 'vendor_no' alih-alih 'vendor_id' ---
+                'vendor_no'        => 'nullable|string|exists:vendors,vendor_no',
+                // --- AKHIR PERUBAHAN ---
+                'provinsi'         => 'nullable|string',
+                'kab'              => 'nullable|string',
                 'tahun'            => 'required|integer',
                 'produk_foto'      => 'nullable|file|mimes:jpg,jpeg,png|max:2048',
                 'produk_deskripsi' => 'nullable|string',
@@ -79,11 +87,27 @@ class ItemController extends Controller
             $validated['produk_foto']    = $this->uploadFile($request, 'produk_foto', 'uploads/foto');
             $validated['produk_dokumen'] = $this->uploadFile($request, 'produk_dokumen', 'uploads/dokumen');
 
+            // --- PERUBAHAN: Konversi vendor_no ke vendor_id ---
+            $vendorId = null;
+            if ($request->filled('vendor_no')) {
+                // Cari vendor_id berdasarkan vendor_no yang unik
+                $vendor = Vendor::where('vendor_no', $validated['vendor_no'])->first();
+                if ($vendor) {
+                    $vendorId = $vendor->vendor_id;
+                }
+            }
+
+            // Siapkan data untuk disimpan
+            $dataToCreate = $validated;
+            $dataToCreate['vendor_id'] = $vendorId; // Tambahkan vendor_id yang sudah ditemukan
+            unset($dataToCreate['vendor_no']);      // Hapus vendor_no dari data yang akan disimpan
+            // --- AKHIR PERUBAHAN ---
+
             // Generate Item No baru secara otomatis
-            $validated['item_no'] = $this->generateNewItemNo();
+            $dataToCreate['item_no'] = $this->generateNewItemNo();
 
             // Baris kritis yang akan kita pantau
-            $item = Item::create($validated);
+            $item = Item::create($dataToCreate); // Gunakan data yang sudah disiapkan
 
             Log::info('Item baru berhasil ditambahkan dengan ID: ' . $item->item_id);
 
@@ -93,7 +117,7 @@ class ItemController extends Controller
                 'data'    => $item,
             ], 201);
         } catch (ValidationException $e) {
-            // Menangkap dan mencatat eror validasi secara spesifik
+            // ... (Tidak ada perubahan di sini)
             Log::error('Eror validasi saat menyimpan item: ', $e->errors());
             return response()->json([
                 'success' => false,
@@ -101,24 +125,24 @@ class ItemController extends Controller
                 'errors'  => $e->errors()
             ], 422);
         } catch (Throwable $e) {
-            // Menangkap SEMUA jenis eror lain (database, dll)
+            // ... (Tidak ada perubahan di sini)
             Log::error('GAGAL MENYIMPAN ITEM: ' . $e->getMessage());
-            // Baris ini akan mencatat detail lengkap eror ke log
             Log::error($e);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan pada server saat mencoba menyimpan data.',
-                'error'   => $e->getMessage(), // Mengirim pesan eror untuk debugging
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
+
     /**
      * Tampilkan detail Item berdasarkan ID atau item_no.
      */
     public function show($id)
     {
-        // Refactor: Panggil method pencarian item
+        // ... (Tidak ada perubahan di sini)
         $item = $this->findItem($id);
 
         if (!$item) {
@@ -151,15 +175,17 @@ class ItemController extends Controller
 
         // 'sometimes' berarti validasi hanya jika field ada di request
         $validated = $request->validate([
-            // Validasi unik untuk item_no, abaikan item saat ini
             'item_no'          => ['sometimes', 'string', Rule::unique('items')->ignore($item->item_id, 'item_id')],
             'ahs'              => 'sometimes|string',
             'deskripsi'        => 'sometimes|string',
             'merek'            => 'nullable|string',
             'satuan'           => 'sometimes|string',
             'hpp'              => 'sometimes|numeric',
-            'vendor_id'        => 'nullable|integer|exists:vendors,vendor_id',
-            'wilayah'          => 'nullable|string',
+            // --- PERUBAHAN: Validasi 'vendor_no' alih-alih 'vendor_id' ---
+            'vendor_no'        => 'nullable|string|exists:vendors,vendor_no',
+            // --- AKHIR PERUBAHAN ---
+            'provinsi'         => 'nullable|string',
+            'kab'              => 'nullable|string',
             'tahun'            => 'sometimes|integer',
             'produk_foto'      => 'nullable|file|mimes:jpg,jpeg,png|max:2048',
             'produk_deskripsi' => 'nullable|string',
@@ -167,23 +193,43 @@ class ItemController extends Controller
             'spesifikasi'      => 'nullable|string',
         ]);
 
+        // --- PERUBAHAN: Siapkan data update, konversi vendor_no ke vendor_id ---
+        $dataToUpdate = $validated;
+
+        // Cek jika 'vendor_no' ada dalam request
+        if ($request->has('vendor_no')) {
+            $vendorId = null;
+            if ($request->filled('vendor_no')) {
+                // Cari vendor_id berdasarkan vendor_no
+                $vendor = Vendor::where('vendor_no', $validated['vendor_no'])->first();
+                if ($vendor) {
+                    $vendorId = $vendor->vendor_id;
+                }
+            }
+            $dataToUpdate['vendor_id'] = $vendorId; // Set vendor_id
+        }
+        unset($dataToUpdate['vendor_no']); // Hapus vendor_no dari data update
+        // --- AKHIR PERUBAHAN ---
+
+
         // Cek dan proses upload file baru
         if ($request->hasFile('produk_foto')) {
-            // Hapus file lama jika ada
             if ($item->produk_foto) {
                 Storage::disk('public')->delete($item->produk_foto);
             }
-            $validated['produk_foto'] = $this->uploadFile($request, 'produk_foto', 'uploads/foto');
+            // --- PERUBAHAN: Simpan path ke $dataToUpdate ---
+            $dataToUpdate['produk_foto'] = $this->uploadFile($request, 'produk_foto', 'uploads/foto');
         }
 
         if ($request->hasFile('produk_dokumen')) {
             if ($item->produk_dokumen) {
                 Storage::disk('public')->delete($item->produk_dokumen);
             }
-            $validated['produk_dokumen'] = $this->uploadFile($request, 'produk_dokumen', 'uploads/dokumen');
+            // --- PERUBAHAN: Simpan path ke $dataToUpdate ---
+            $dataToUpdate['produk_dokumen'] = $this->uploadFile($request, 'produk_dokumen', 'uploads/dokumen');
         }
 
-        $item->update($validated);
+        $item->update($dataToUpdate); // Gunakan $dataToUpdate
         Log::info('Item ID ' . $id . ' berhasil diupdate');
 
         return response()->json([
@@ -198,6 +244,7 @@ class ItemController extends Controller
      */
     public function destroy($id)
     {
+        // ... (Tidak ada perubahan di sini)
         $item = $this->findItem($id);
 
         if (!$item) {
@@ -207,7 +254,6 @@ class ItemController extends Controller
             ], 404);
         }
 
-        // Hapus file dari storage sebelum menghapus record
         if ($item->produk_foto) {
             Storage::disk('public')->delete($item->produk_foto);
         }
@@ -229,9 +275,8 @@ class ItemController extends Controller
      */
     public function export()
     {
+        // ... (Tidak ada perubahan di sini, pastikan ItemsExport Anda mengekspor $item->vendor->vendor_no)
         Log::info('Memulai proses ekspor semua item.');
-        
-        // Nama file sekarang statis karena selalu mengekspor semua data
         return Excel::download(new ItemsExport, 'item.xlsx');
     }
 
@@ -240,41 +285,99 @@ class ItemController extends Controller
      */
     public function import(Request $request)
     {
+        // 1. Validasi File
         $request->validate(['file' => 'required|mimes:xlsx,xls,csv']);
 
-        DB::beginTransaction(); // <-- Mulai transaksi database
+        DB::beginTransaction();
 
         try {
-            // PERBAIKAN: Gunakan toCollection untuk memproses data sebelum disimpan
+            // 2. Baca file Excel ke dalam Collection
             $collection = Excel::toCollection(new ItemsImport, $request->file('file'));
+            $rows = $collection[0]; // Ambil sheet pertama
 
-            // Loop melalui setiap baris dari sheet pertama
-            foreach ($collection[0] as $row) {
+            // -------------------------------------------------------
+            // OPTIMALISASI 1: MAPPING VENDOR (Cepat & Efisien)
+            // -------------------------------------------------------
+            // Kumpulkan semua vendor_no unik dari file excel
+            $vendorNos = $rows->pluck('vendor_no')->filter()->unique()->toArray();
+
+            // Ambil data vendor dari database berdasarkan no tersebut
+            $vendors = Vendor::whereIn('vendor_no', $vendorNos)->get();
+
+            // Buat Peta: 'V-001' => 15 (id)
+            // Agar nanti kita tidak perlu query database berulang-ulang di dalam loop
+            $vendorMap = $vendors->pluck('vendor_id', 'vendor_no');
+
+
+            // -------------------------------------------------------
+            // OPTIMALISASI 2: LOGIKA NOMOR ITEM (FIX ANTI DUPLIKAT)
+            // -------------------------------------------------------
+            // Gunakan DB::table (bukan Model Item) agar data yang terhapus (soft delete) tetap terbaca.
+            // Ini mencegah error "Duplicate entry 'M_001'".
+            $lastItem = DB::table('items')->orderBy('item_id', 'desc')->first();
+
+            $lastNumber = 0;
+
+            if ($lastItem && !empty($lastItem->item_no)) {
+                // Ambil angka dari string "M_005" -> diambil 5.
+                // Fungsi preg_replace ini hanya mengambil digit angka saja, lebih aman daripada substr.
+                $angkaSaja = preg_replace('/[^0-9]/', '', $lastItem->item_no);
+                $lastNumber = intval($angkaSaja);
+            }
+
+            // -------------------------------------------------------
+            // LOOPING DATA & SIMPAN
+            // -------------------------------------------------------
+            foreach ($rows as $row) {
+                // 1. Cari Vendor ID dari Peta Map
+                $vendorId = $vendorMap[$row['vendor_no'] ?? ''] ?? null;
+
+                // 2. Generate Nomor Baru (Increment variabel PHP)
+                $lastNumber++; // Tambah 1
+                $newItemNo = 'M_' . str_pad($lastNumber, 3, '0', STR_PAD_LEFT);
+                // Hasilnya: M_006, M_007, dst...
+
+                // 3. Parsing Foto (Jika ada koma, jadikan array)
+                $fotoArray = null;
+                if (!empty($row['produk_foto'])) {
+                    $fotoArray = array_map('trim', explode(',', $row['produk_foto']));
+                }
+
+                // 4. Parsing Dokumen (Jika ada koma, jadikan array)
+                $dokumenArray = null;
+                if (!empty($row['produk_dokumen'])) {
+                    $dokumenArray = array_map('trim', explode(',', $row['produk_dokumen']));
+                }
+
+                // 5. Simpan ke Database
                 Item::create([
-                    'item_no'          => $this->generateNewItemNo(), // Generate nomor baru yang aman untuk SETIAP baris
+                    'item_no'          => $newItemNo,
                     'ahs'              => $row['ahs'],
                     'deskripsi'        => $row['deskripsi'],
                     'merek'            => $row['merek'] ?? null,
                     'satuan'           => $row['satuan'],
                     'hpp'              => $row['hpp'],
-                    'vendor_id'        => $row['vendor_id'] ?? null,
-                    'wilayah'          => $row['wilayah'] ?? null,
+                    'vendor_id'        => $vendorId,
+                    'provinsi'         => $row['provinsi'] ?? null,
+                    'kab'              => $row['kab'] ?? null,
                     'tahun'            => $row['tahun'],
                     'spesifikasi'      => $row['spesifikasi'] ?? null,
                     'produk_deskripsi' => $row['produk_deskripsi'] ?? null,
+                    'produk_foto'      => $fotoArray,    // Masuk sebagai JSON Array
+                    'produk_dokumen'   => $dokumenArray, // Masuk sebagai JSON Array
                 ]);
             }
 
-            DB::commit(); // <-- Jika semua berhasil, simpan perubahan secara permanen
+            DB::commit();
             Log::info('File item berhasil diimpor.');
 
             return response()->json([
                 'success' => true,
                 'message' => 'Data item berhasil diimpor',
             ], 200);
-
         } catch (ValidationException $e) {
-            DB::rollBack(); // <-- Batalkan semua jika ada error validasi
+            DB::rollBack();
+            // Menangani error validasi Excel
             $failures = $e->failures();
             $errors = [];
             foreach ($failures as $failure) {
@@ -291,11 +394,10 @@ class ItemController extends Controller
                 'message' => 'Terdapat kesalahan validasi pada file.',
                 'errors'  => $errors,
             ], 422);
-
         } catch (Throwable $e) {
-            DB::rollBack(); // <-- Batalkan semua jika ada error tak terduga
-            Log::error('Gagal impor item karena error tak terduga: ' . $e->getMessage());
-            Log::error($e); // Log stack trace lengkap
+            DB::rollBack();
+            // Menangani error server (SQL, Logic, dll)
+            Log::error('Gagal impor item: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan pada server saat impor.',
@@ -304,8 +406,52 @@ class ItemController extends Controller
         }
     }
 
+    public function downloadTemplate(): BinaryFileResponse
+    {
+        // Header sesuai dengan perubahan
+        $headers = [
+            'ahs',
+            'deskripsi',
+            'merek',
+            'satuan',
+            'hpp',
+            // --- PERUBAHAN: Ubah header template ---
+            'vendor_no',
+            // --- AKHIR PERUBAHAN ---
+            'provinsi',
+            'kab',
+            'tahun',
+            'produk_deskripsi',
+            'spesifikasi',
+        ];
+
+        // Nama file
+        $fileName = 'template_import_items.xlsx';
+
+        // ... (Logika pembuatan file Excel tetap sama)
+        $tempFile = tempnam(sys_get_temp_dir(), 'template_items_');
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $colIndex = 1;
+        foreach ($headers as $header) {
+            $sheet->setCellValueByColumnAndRow($colIndex, 1, $header);
+            $colIndex++;
+        }
+
+        foreach (range('A', $sheet->getHighestColumn()) as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
+    }
+
+
     // ===================================================================
-    // PRIVATE HELPER METHODS (Untuk mengurangi duplikasi kode)
+    // PRIVATE HELPER METHODS (Tidak ada perubahan di sini)
     // ===================================================================
 
     /**
@@ -313,14 +459,10 @@ class ItemController extends Controller
      */
     private function findItem($id)
     {
-        // Cari berdasarkan primary key dulu (lebih cepat)
         $item = Item::with('vendor')->find($id);
-
-        // Jika tidak ketemu, cari berdasarkan item_no
         if (!$item) {
             $item = Item::with('vendor')->where('item_no', $id)->first();
         }
-
         return $item;
     }
 
@@ -329,12 +471,10 @@ class ItemController extends Controller
      */
     private function generateNewItemNo()
     {
-        // Menggunakan latest berdasarkan primary key lebih andal
         $lastItem = Item::latest('item_id')->first();
         $newIdNumber = 1;
 
         if ($lastItem && isset($lastItem->item_no)) {
-            // Ambil angka dari string 'M_XXX'
             $lastIdNumber = intval(substr($lastItem->item_no, 2));
             $newIdNumber = $lastIdNumber + 1;
         }
@@ -349,7 +489,6 @@ class ItemController extends Controller
     {
         if ($request->hasFile($fieldName) && $request->file($fieldName)->isValid()) {
             $file = $request->file($fieldName);
-            // Menggunakan nama file asli untuk konsistensi
             $originalFileName = $file->getClientOriginalName();
             Log::info("File '$originalFileName' diupload ke direktori '$directory'.");
             return $file->storeAs($directory, $originalFileName, 'public');

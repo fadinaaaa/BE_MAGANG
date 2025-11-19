@@ -18,7 +18,8 @@ return new class extends Migration
             $table->string('contact_name'); // Nama Kontak
             $table->string('contact_no'); // Nomor Kontak
             $table->string('email')->unique(); // Email (unik)
-            $table->string('wilayah'); // Wilayah
+            $table->string('provinsi'); // Diubah dari wilayah
+            $table->string('kab');
             $table->integer('tahun'); // Tahun
             $table->timestamps();
         });

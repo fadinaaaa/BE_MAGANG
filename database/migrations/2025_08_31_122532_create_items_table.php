@@ -20,7 +20,8 @@ return new class extends Migration
             $table->string('satuan'); // Satuan
             $table->decimal('hpp', 15, 2); // HPP (Harga Pokok Produksi)
             $table->unsignedBigInteger('vendor_id')->nullable(); // Relasi ke vendor
-            $table->string('wilayah'); // Wilayah
+            $table->string('provinsi'); // Diubah dari wilayah
+            $table->string('kab');
             $table->year('tahun'); // Tahun
 
             // Produk Info (foto bisa lebih dari 1 → json)

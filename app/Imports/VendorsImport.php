@@ -18,12 +18,13 @@ class VendorsImport implements ToModel, WithHeadingRow, WithValidation
     {
         // Sesuaikan key ini agar cocok dengan header di file Excel
         return new Vendor([
-            'vendor_no'    => $row['nomor_vendor'], // Ditambahkan
-            'vendor_name'  => $row['nama_vendor'],
-            'contact_name' => $row['nama_kontak'],
-            'contact_no'   => $row['nomor_kontak'],
+            'vendor_no'    => $row['vendor_no'], // Ditambahkan
+            'vendor_name'  => $row['vendor_name'],
+            'contact_name' => $row['contact_name'],
+            'contact_no'   => $row['contact_no'],
             'email'        => $row['email'],
-            'wilayah'      => $row['wilayah'],
+            'provinsi'     => $row['provinsi'],
+            'kab'          => $row['kab'],
             'tahun'        => $row['tahun'],
         ]);
     }
@@ -32,12 +33,13 @@ class VendorsImport implements ToModel, WithHeadingRow, WithValidation
     {
         // Sesuaikan juga key validasi ini
         return [
-            '*.nomor_vendor' => 'required|string|unique:vendors,vendor_no', // Ditambahkan
-            '*.nama_vendor'  => 'required|string|max:255',
-            '*.nama_kontak'  => 'required|string|max:255',
-            '*.nomor_kontak' => 'required|string|max:20',
+            '*.vendor_no' => 'required|string|unique:vendors,vendor_no', // Ditambahkan
+            '*.vendor_name'  => 'required|string|max:255',
+            '*.contact_name'  => 'required|string|max:255',
+            '*.contact_no' => 'required|string|max:20',
             '*.email'        => 'required|email|unique:vendors,email',
-            '*.wilayah'      => 'required|string',
+            '*.provinsi'     => 'required|string',
+            '*.kab'          => 'required|string',
             '*.tahun'        => 'required|integer',
         ];
     }

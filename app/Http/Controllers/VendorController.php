@@ -11,6 +11,9 @@ use App\Imports\VendorsImport;
 use Maatwebsite\Excel\Validators\ValidationException;
 use Exception;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class VendorController extends Controller
 {
@@ -22,8 +25,13 @@ class VendorController extends Controller
         $query = Vendor::query();
 
         // filter berdasarkan wilayah
-        if ($request->has('wilayah') && !empty($request->wilayah)) {
-            $query->where('wilayah', $request->wilayah);
+        if ($request->has('provinsi') && !empty($request->provinsi)) {
+            $query->where('provinsi', $request->provinsi);
+        }
+
+        // filter berdasarkan kab
+        if ($request->has('kab') && !empty($request->kab)) {
+            $query->where('kab', $request->kab);
         }
 
         // filter berdasarkan tahun
@@ -47,7 +55,8 @@ class VendorController extends Controller
             'contact_name' => 'required|string|max:255',
             'contact_no'   => 'required|string|max:20',
             'email'        => 'required|email|unique:vendors,email',
-            'wilayah'      => 'required|string',
+            'provinsi'     => 'required|string', // Diubah
+            'kab'          => 'required|string',
             'tahun'        => 'required|integer',
         ]);
 
@@ -81,7 +90,8 @@ class VendorController extends Controller
             'contact_name' => 'required|string|max:255',
             'contact_no'   => 'required|string|max:20',
             'email'        => ['required', 'email', Rule::unique('vendors')->ignore($vendor->vendor_id, 'vendor_id')],
-            'wilayah'      => 'required|string',
+            'provinsi'     => 'required|string', // Diubah
+            'kab'          => 'required|string',
             'tahun'        => 'required|integer',
         ]);
 
@@ -184,5 +194,43 @@ class VendorController extends Controller
 
         // Menggunakan str_pad dengan panjang 3 untuk format '001', '002', dst.
         return 'V_' . str_pad($newIdNumber, 3, '0', STR_PAD_LEFT);
+    }
+
+    public function downloadTemplate(): BinaryFileResponse
+    {
+        // Header sesuai dengan VendorsImport::rules() dan mapping model()
+        $headers = [
+            'vendor_no',
+            'vendor_name',
+            'contact_name',
+            'contact_no',
+            'email',
+            'provinsi',
+            'kab',
+            'tahun',
+        ];
+
+        $fileName = 'template_import_vendors.xlsx';
+        $tempFile = tempnam(sys_get_temp_dir(), 'template_vendors_');
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Tulis header di baris pertama
+        $colIndex = 1;
+        foreach ($headers as $header) {
+            $sheet->setCellValueByColumnAndRow($colIndex, 1, $header);
+            $colIndex++;
+        }
+
+        // Auto size kolom
+        foreach (range('A', $sheet->getHighestColumn()) as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($tempFile);
+
+        return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
     }
 }

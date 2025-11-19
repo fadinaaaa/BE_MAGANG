@@ -31,7 +31,8 @@ class VendorsExport implements FromCollection, WithHeadings
                 'contact_name' => $vendor->contact_name,
                 'contact_no'   => $vendor->contact_no,
                 'email'        => $vendor->email,
-                'wilayah'      => $vendor->wilayah,
+                'provinsi'     => $vendor->provinsi,
+                'kab'          => $vendor->kab,
                 'tahun'        => $vendor->tahun,
             ];
         });
@@ -45,12 +46,13 @@ class VendorsExport implements FromCollection, WithHeadings
     {
         return [
             'ID',
-            'Nomor Vendor', // Ditambahkan
-            'Nama Vendor',
-            'Nama Kontak',
-            'No. Kontak',
+            'Vendor No', // Ditambahkan
+            'Vendor Name',
+            'Contact Name',
+            'Contact No',
             'Email',
-            'Wilayah',
+            'Provinsi', // Diubah
+            'Kab',
             'Tahun',
         ];
     }

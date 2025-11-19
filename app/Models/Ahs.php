@@ -19,7 +19,8 @@ class Ahs extends Model
         'ahs',
         'deskripsi',
         'satuan',
-        'wilayah',
+        'provinsi', // Ditambahkan
+        'kab', // Menggantikan 'wilayah'
         'tahun',
         'harga_pokok_total',
     ];

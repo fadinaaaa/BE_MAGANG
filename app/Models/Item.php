@@ -20,7 +20,8 @@ class Item extends Model
         'satuan',
         'hpp',
         'vendor_id',
-        'wilayah',
+        'provinsi', // Ditambahkan
+        'kab', // Menggantikan 'wilayah'
         'tahun',
         'produk_foto',
         'produk_deskripsi',

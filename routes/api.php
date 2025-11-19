@@ -8,6 +8,7 @@ use App\Http\Controllers\AhsWithItemsController;
 use App\Http\Controllers\VendorController;
 
 //Auth
+Route::get('/vendors/template/download', [VendorController::class, 'downloadTemplate']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -16,30 +17,32 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::get('/vendors/export', [VendorController::class, 'export'])->name('vendors.export');
 Route::get('/items/export', [ItemController::class, 'export']);
 
-Route::middleware('auth:sanctum')->group(function () {
-    // Item
-    Route::get('/items', [ItemController::class, 'index']);
-    Route::post('/items', [ItemController::class, 'store']);
-    Route::get('/items/{id}', [ItemController::class, 'show']);
-    Route::put('/items/{id}', [ItemController::class, 'update']);
-    Route::delete('/items/{id}', [ItemController::class, 'destroy']);
-    Route::post('items/import', [ItemController::class, 'import'])->name('items.import');
+// Item
+Route::get('/items', [ItemController::class, 'index']);
+Route::post('/items', [ItemController::class, 'store']);
+Route::get('/items/{id}', [ItemController::class, 'show']);
+Route::put('/items/{id}', [ItemController::class, 'update']);
+Route::delete('/items/{id}', [ItemController::class, 'destroy']);
+Route::get('/items/template/download', [ItemController::class, 'downloadTemplate']);
+Route::post('items/import', [ItemController::class, 'import'])->name('items.import');
 
 
-    // Vendor
-    Route::get('/vendors', [VendorController::class, 'index']);
-    Route::post('/vendors', [VendorController::class, 'store']);
-    Route::get('/vendors/{id}', [VendorController::class, 'show']);
-    Route::put('/vendors/{id}', [VendorController::class, 'update']);
-    Route::delete('/vendors/{id}', [VendorController::class, 'destroy']);
-    Route::post('vendors/import', [VendorController::class, 'import'])->name('vendors.import');
+// Vendor
+Route::get('/vendors', [VendorController::class, 'index']);
+Route::post('/vendors', [VendorController::class, 'store']);
+Route::get('/vendors/{id}', [VendorController::class, 'show']);
+Route::put('/vendors/{id}', [VendorController::class, 'update']);
+Route::delete('/vendors/{id}', [VendorController::class, 'destroy']);
+Route::post('vendors/import', [VendorController::class, 'import'])->name('vendors.import');
 
-    //AHS
-    Route::get('/ahs', [AhsWithItemsController::class, 'get_data_ahs']);
-    Route::get('/ahs/option-item', [AhsWithItemsController::class, 'getOptionItem']);
-    Route::post('/ahs', [AhsWithItemsController::class, 'addDataAhs']);
-    Route::put('/ahs/{ahs_id}', [AhsWithItemsController::class, 'update']);
-    Route::delete('/{ahs_id}', [AhsWithItemsController::class, 'destroy']);
+//AHS
+Route::get('/ahs', [AhsWithItemsController::class, 'get_data_ahs']);
+Route::get('/ahs/option-item', [AhsWithItemsController::class, 'getOptionItem']);
+Route::post('/ahs', [AhsWithItemsController::class, 'addDataAhs']);
+Route::put('/ahs/{ahs_id}', [AhsWithItemsController::class, 'update']);
+Route::delete('/{ahs_id}', [AhsWithItemsController::class, 'destroy']);
+Route::get('ahs/export', [AhsWithItemsController::class, 'export'])->name('ahs.export');
+Route::get('ahs/import/template', [AhsWithItemsController::class, 'downloadImportTemplate'])->name('ahs.import.template');
+Route::post('ahs/import', [AhsWithItemsController::class, 'import'])->name('ahs.import.store');
 
-});
-
+Route::middleware('auth:sanctum')->group(function () {});
