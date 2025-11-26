@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Exception;
 
 class AhsImport implements ToCollection, WithHeadingRow
 {
@@ -23,13 +24,13 @@ class AhsImport implements ToCollection, WithHeadingRow
         $grouped = $rows->groupBy('group_key');
 
         if ($grouped->isEmpty()) {
-            throw new \Exception('File kosong atau format salah.');
+            throw new Exception('File kosong atau format salah.');
         }
 
         // 2. Iterasi setiap grup (setiap grup adalah 1 AHS baru)
         foreach ($grouped as $groupKey => $items) {
             if (empty($groupKey)) {
-                throw new \Exception('Ditemukan data tanpa group_key. Setiap AHS harus memiliki group_key yang unik.');
+                throw new Exception('Ditemukan data tanpa group_key. Setiap AHS harus memiliki group_key yang unik.');
             }
 
             $firstItem = $items->first();
@@ -119,7 +120,7 @@ class AhsImport implements ToCollection, WithHeadingRow
         ]);
 
         if ($validator->fails()) {
-            throw new \Exception('Validasi Header AHS Gagal: ' . $validator->errors()->first());
+            throw new Exception('Validasi Header AHS Gagal: ' . $validator->errors()->first());
         }
 
         return $validator->validated();
@@ -136,7 +137,7 @@ class AhsImport implements ToCollection, WithHeadingRow
         ]);
 
         if ($validator->fails()) {
-            throw new \Exception('Validasi Item AHS Gagal: ' . $validator->errors()->first());
+            throw new Exception('Validasi Item AHS Gagal: ' . $validator->errors()->first());
         }
 
         $validated = $validator->validated();
@@ -148,14 +149,14 @@ class AhsImport implements ToCollection, WithHeadingRow
             ->first();
 
         if (!$item) {
-            throw new \Exception("Item dengan kode '{$validated['item_no']}' tidak ditemukan di provinsi '{$provinsi}', kab '{$kab}'."); // Diubah
+            throw new Exception("Item dengan kode '{$validated['item_no']}' tidak ditemukan di provinsi '{$provinsi}', kab '{$kab}'."); // Diubah
         }
 
         // Kembalikan data tervalidasi + model Item yg ditemukan
         return [
-            'item_no'    => $validated['item_no'],
+            'item_no'     => $validated['item_no'],
             'item_volume' => $validated['item_volume'],
-            'item_model' => $item,
+            'item_model'  => $item,
         ];
     }
 
