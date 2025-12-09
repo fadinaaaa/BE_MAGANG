@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Item;
 use App\Models\Vendor; // --- PERUBAHAN: Import model Vendor ---
+use App\Models\Dokumen;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -12,10 +13,12 @@ use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\ItemsExport;
 use App\Imports\ItemsImport;
+use Dom\Document;
 use Maatwebsite\Excel\Validators\ValidationException;
 use Maatwebsite\Excel\Excel as ExcelFormat;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
+use App\Models\ItemFile;
 
 class ItemController extends Controller
 {
@@ -63,111 +66,107 @@ class ItemController extends Controller
             'data'    => $items,
         ]);
     }
-
-    /**
-     * Simpan Item baru.
-     */
     public function store(Request $request)
     {
         try {
+            // VALIDASI
             $validated = $request->validate([
                 'ahs'              => 'required|string',
                 'deskripsi'        => 'required|string',
                 'merek'            => 'nullable|string',
                 'satuan'           => 'required|string',
+
                 'hpp'              => 'required|numeric',
-                // --- PERUBAHAN: Validasi 'vendor_no' alih-alih 'vendor_id' ---
+
                 'vendor_no'        => 'nullable|string|exists:vendors,vendor_no',
-                // --- AKHIR PERUBAHAN ---
+
                 'provinsi'         => 'nullable|string',
                 'kab'              => 'nullable|string',
                 'tahun'            => 'required|integer',
-                'produk_foto'      => 'nullable|file|mimes:jpg,jpeg,png|max:2048',
+
+                'produk_foto'      => 'nullable|array',
+                'produk_foto.*'    => 'file|mimes:jpg,jpeg,png|max:2048',
+
+                'produk_dokumen'   => 'nullable|array',
+                'produk_dokumen.*' => 'file|mimes:pdf,doc,docx|max:5120',
+
                 'produk_deskripsi' => 'nullable|string',
-                'produk_dokumen'   => 'nullable|file|mimes:pdf,doc,docx|max:5120',
                 'spesifikasi'      => 'nullable|string',
             ]);
 
-            // Pindahkan logika upload file ke method terpisah
-            $validated['produk_foto']    = $this->uploadFile($request, 'produk_foto', 'uploads/foto');
-            $validated['produk_dokumen'] = $this->uploadFile($request, 'produk_dokumen', 'uploads/dokumen');
-
-            // --- PERUBAHAN: Konversi vendor_no ke vendor_id ---
+            // Konversi vendor_no -> vendor_id
             $vendorId = null;
             if ($request->filled('vendor_no')) {
-                // Cari vendor_id berdasarkan vendor_no yang unik
                 $vendor = Vendor::where('vendor_no', $validated['vendor_no'])->first();
                 if ($vendor) {
                     $vendorId = $vendor->vendor_id;
                 }
             }
 
-            // Siapkan data untuk disimpan
+            // Data Item
             $dataToCreate = $validated;
-            $dataToCreate['vendor_id'] = $vendorId; // Tambahkan vendor_id yang sudah ditemukan
-            unset($dataToCreate['vendor_no']);      // Hapus vendor_no dari data yang akan disimpan
-            // --- AKHIR PERUBAHAN ---
+            $dataToCreate['vendor_id'] = $vendorId;
+            unset($dataToCreate['vendor_no']);
 
-            // Generate Item No baru secara otomatis
+            // Nomor item otomatis
             $dataToCreate['item_no'] = $this->generateNewItemNo();
 
-            // Baris kritis yang akan kita pantau
-            $item = Item::create($dataToCreate); // Gunakan data yang sudah disiapkan
+            // SIMPAN ITEM
+            $item = Item::create($dataToCreate);
 
-            Log::info('Item baru berhasil ditambahkan dengan ID: ' . $item->item_id);
+            // SIMPAN DOKUMEN
+            if ($request->hasFile('produk_dokumen')) {
+                foreach ($request->file('produk_dokumen') as $doc) {
+
+                    $path = $doc->store('uploads/dokumen', 'public');
+
+                    ItemFile::create([
+                        'fileable_id'   => $item->item_id,   // FIXED !!!
+                        'fileable_type' => Item::class,
+                        'file_path'     => $path,
+                        'file_type'     => 'dokumen'
+                    ]);
+                }
+            }
+
+            // SIMPAN FOTO
+            if ($request->hasFile('produk_foto')) {
+                foreach ($request->file('produk_foto') as $foto) {
+
+                    $path = $foto->store('uploads/foto', 'public');
+
+                    ItemFile::create([
+                        'fileable_id'   => $item->item_id,   // FIXED !!!
+                        'fileable_type' => Item::class,
+                        'file_path'     => $path,
+                        'file_type'     => 'foto'            // FIXED !!!
+                    ]);
+                }
+            }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Item berhasil ditambahkan',
-                'data'    => $item,
+                'data'    => $item->load('files'),
             ], 201);
         } catch (ValidationException $e) {
-            // ... (Tidak ada perubahan di sini)
-            Log::error('Eror validasi saat menyimpan item: ', $e->errors());
-            return response()->json([
-                'success' => false,
-                'message' => 'Data yang diberikan tidak valid.',
-                'errors'  => $e->errors()
-            ], 422);
-        } catch (Throwable $e) {
-            // ... (Tidak ada perubahan di sini)
-            Log::error('GAGAL MENYIMPAN ITEM: ' . $e->getMessage());
-            Log::error($e);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan pada server saat mencoba menyimpan data.',
+                'message' => 'Data tidak valid.',
+                'errors'  => $e->errors()
+            ], 422);
+        } catch (Throwable $e) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan pada server.',
                 'error'   => $e->getMessage(),
             ], 500);
         }
     }
 
-    /**
-     * Tampilkan detail Item berdasarkan ID atau item_no.
-     */
-    public function show($id)
-    {
-        // ... (Tidak ada perubahan di sini)
-        $item = $this->findItem($id);
-
-        if (!$item) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Item tidak ditemukan',
-            ], 404);
-        }
-
-        return response()->json([
-            'success' => true,
-            'data'    => $item,
-        ]);
-    }
-
-    /**
-     * Update Item.
-     * Menggunakan POST karena form-data (untuk file upload) tidak sepenuhnya didukung oleh PUT/PATCH.
-     */
-public function update(Request $request, $id)
+    public function update(Request $request, $id)
     {
         $item = $this->findItem($id);
 
@@ -178,74 +177,135 @@ public function update(Request $request, $id)
             ], 404);
         }
 
-        // 1. Perbaikan Validasi: Tambahkan 'vendor_id' agar diterima
+        // ===== VALIDASI =====
         $validated = $request->validate([
-            'item_no'          => ['sometimes', 'string', Rule::unique('items')->ignore($item->item_id, 'item_id')],
+            'item_no'          => ['sometimes', 'string', Rule::unique('items', 'item_no')->ignore($item->item_id, 'item_id')],
             'ahs'              => 'sometimes|string',
             'deskripsi'        => 'sometimes|string',
             'merek'            => 'nullable|string',
             'satuan'           => 'sometimes|string',
             'hpp'              => 'sometimes|numeric',
-            // Opsi A: User kirim kode vendor (V-001)
+
+            // vendor
             'vendor_no'        => 'nullable|string|exists:vendors,vendor_no',
-            // Opsi B: User kirim ID vendor (15) -> INI YANG DITAMBAHKAN
             'vendor_id'        => 'nullable|integer|exists:vendors,vendor_id',
+
             'provinsi'         => 'nullable|string',
             'kab'              => 'nullable|string',
             'tahun'            => 'sometimes|integer',
-            'produk_foto'      => 'nullable|file|mimes:jpg,jpeg,png|max:2048',
-            'produk_deskripsi' => 'nullable|string',
-            'produk_dokumen'   => 'nullable|file|mimes:pdf,doc,docx|max:5120',
+
+            // Foto
+            'produk_foto'      => 'nullable|array',
+            'produk_foto.*'    => 'file|mimes:jpg,jpeg,png|max:2048',
+
+            // Dokumen
+            'produk_dokumen'   => 'nullable|array',
+            'produk_dokumen.*' => 'file|mimes:pdf,doc,docx|max:5120',
+
+            // Hapus file lama
+            'hapus_file'       => 'nullable|array',
+            'hapus_file.*'     => 'integer|exists:item_files,file_id',
+
             'spesifikasi'      => 'nullable|string',
         ]);
 
         $dataToUpdate = $validated;
 
-        // 2. Logika Penentuan Vendor ID
-        // Jika user mengirim 'vendor_no', kita cari ID-nya dan timpa data vendor_id
+
+        // ==========================
+        // KONVERSI vendor_no → vendor_id
+        // ==========================
         if ($request->filled('vendor_no')) {
             $vendor = Vendor::where('vendor_no', $request->vendor_no)->first();
             if ($vendor) {
                 $dataToUpdate['vendor_id'] = $vendor->vendor_id;
             }
         }
-        
-        // Hapus vendor_no dari array karena tabel items tidak punya kolom vendor_no
-        unset($dataToUpdate['vendor_no']); 
 
-        // 3. Proses File Upload
+        // Hilangkan vendor_no supaya tidak ikut update
+        unset($dataToUpdate['vendor_no']);
+
+
+        // ==========================
+        // HAPUS FILE LAMA
+        // ==========================
+        if ($request->filled('hapus_file')) {
+            foreach ($request->hapus_file as $fileId) {
+
+                $file = ItemFile::find($fileId);
+
+                if ($file) {
+                    Storage::disk('public')->delete($file->file_path);
+                    $file->delete();
+                }
+            }
+        }
+
+
+        // ==========================
+        // UPLOAD FOTO BARU
+        // ==========================
         if ($request->hasFile('produk_foto')) {
-            if ($item->produk_foto) {
-                Storage::disk('public')->delete($item->produk_foto);
+
+            foreach ($request->file('produk_foto') as $foto) {
+
+                $path = $foto->store('uploads/foto', 'public');
+
+                ItemFile::create([
+                    'fileable_id'   => $item->item_id,   // FIXED !!!
+                    'fileable_type' => Item::class,
+                    'file_path'     => $path,
+                    'file_type'     => 'foto'
+                ]);
             }
-            $dataToUpdate['produk_foto'] = $this->uploadFile($request, 'produk_foto', 'uploads/foto');
         }
 
+
+        // ==========================
+        // UPLOAD DOKUMEN BARU
+        // ==========================
         if ($request->hasFile('produk_dokumen')) {
-            if ($item->produk_dokumen) {
-                Storage::disk('public')->delete($item->produk_dokumen);
+
+            foreach ($request->file('produk_dokumen') as $doc) {
+
+                $path = $doc->store('uploads/dokumen', 'public');
+
+                ItemFile::create([
+                    'fileable_id'   => $item->item_id,   // FIXED !!!
+                    'fileable_type' => Item::class,
+                    'file_path'     => $path,
+                    'file_type'     => 'dokumen'
+                ]);
             }
-            $dataToUpdate['produk_dokumen'] = $this->uploadFile($request, 'produk_dokumen', 'uploads/dokumen');
         }
 
-        // 4. Update Database
+
+        // Hapus key agar tidak mengganggu update
+        unset(
+            $dataToUpdate['produk_foto'],
+            $dataToUpdate['produk_dokumen'],
+            $dataToUpdate['hapus_file']
+        );
+
+
+        // ==========================
+        // UPDATE DATA ITEM
+        // ==========================
         $item->update($dataToUpdate);
-        
-        Log::info('Item ID ' . $id . ' berhasil diupdate. Data: ' . json_encode($dataToUpdate));
+
 
         return response()->json([
             'success' => true,
             'message' => 'Item berhasil diupdate',
-            'data'    => $item,
+            'data'    => $item->load('files'),
         ]);
     }
 
     /**
-     * Hapus Item.
+     * Hapus Item beserta semua dokumen dan foto.
      */
     public function destroy($id)
     {
-        // ... (Tidak ada perubahan di sini)
         $item = $this->findItem($id);
 
         if (!$item) {
@@ -255,15 +315,24 @@ public function update(Request $request, $id)
             ], 404);
         }
 
-        if ($item->produk_foto) {
-            Storage::disk('public')->delete($item->produk_foto);
-        }
-        if ($item->produk_dokumen) {
-            Storage::disk('public')->delete($item->produk_dokumen);
+        // =============================
+        // HAPUS SEMUA FILE (foto + dokumen)
+        // =============================
+        foreach ($item->files as $file) {
+
+            // Hapus file fisik
+            Storage::disk('public')->delete($file->file_path);
+
+            // Hapus record dari DB
+            $file->delete();
         }
 
+        // =============================
+        // HAPUS ITEM
+        // =============================
         $item->delete();
-        Log::info('Item dengan ID ' . $id . ' berhasil dihapus');
+
+        Log::info("Item ID $id berhasil dihapus beserta seluruh file-nya.");
 
         return response()->json([
             'success' => true,
@@ -281,7 +350,7 @@ public function update(Request $request, $id)
         return Excel::download(new ItemsExport, 'item.xlsx');
     }
 
-/**
+    /**
      * Impor data Item dari Excel.
      */
     public function import(Request $request)
@@ -300,7 +369,7 @@ public function update(Request $request, $id)
             // OPTIMALISASI 1: MAPPING VENDOR
             // -------------------------------------------------------
             $vendorMap = [];
-            
+
             // Cek apakah Excel menggunakan 'vendor_no'
             // Pluck hanya akan bekerja jika key 'vendor_no' ada di collection
             $hasVendorNo = $rows->first() && isset($rows->first()['vendor_no']);
@@ -330,7 +399,7 @@ public function update(Request $request, $id)
                 $vendorId = null;
 
                 // --- PERBAIKAN LOGIKA VENDOR DI SINI ---
-                
+
                 // Prioritas 1: Gunakan mapping vendor_no jika ada di Excel dan Map
                 if (isset($row['vendor_no']) && isset($vendorMap[$row['vendor_no']])) {
                     $vendorId = $vendorMap[$row['vendor_no']];
@@ -339,7 +408,7 @@ public function update(Request $request, $id)
                 elseif (isset($row['vendor_id'])) {
                     $vendorId = $row['vendor_id'];
                 }
-                
+
                 // --- AKHIR PERBAIKAN ---
 
                 // Generate Nomor Baru
@@ -384,7 +453,6 @@ public function update(Request $request, $id)
                 'success' => true,
                 'message' => 'Data item berhasil diimpor',
             ], 200);
-
         } catch (ValidationException $e) {
             DB::rollBack();
             $failures = $e->failures();
