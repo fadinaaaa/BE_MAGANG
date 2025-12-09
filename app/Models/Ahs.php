@@ -18,11 +18,17 @@ class Ahs extends Model
     protected $fillable = [
         'ahs',
         'deskripsi',
+        'merek',
         'satuan',
+        'vendor',
         'provinsi', // Ditambahkan
         'kab', // Menggantikan 'wilayah'
         'tahun',
         'harga_pokok_total',
+        'produk_foto',
+        'produk_deskripsi',
+        'produk_dokumen',
+        'spesifikasi',
     ];
 
     /**
@@ -31,6 +37,8 @@ class Ahs extends Model
     protected $casts = [
         'tahun' => 'integer',
         'harga_pokok_total' => 'decimal:2',
+        'produk_foto' => 'array',
+        'produk_dokumen' => 'array',
     ];
 
     /**
@@ -39,5 +47,13 @@ class Ahs extends Model
     public function items()
     {
         return $this->hasMany(AhsItem::class, 'ahs_id', 'ahs_id');
+    }
+    public function vendor()
+    {
+        return $this->belongsTo(Vendor::class, 'vendor_id', 'vendor_id');
+    }
+    public function files()
+    {
+        return $this->morphMany(ItemFile::class, 'fileable');
     }
 }

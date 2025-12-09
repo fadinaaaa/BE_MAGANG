@@ -43,4 +43,8 @@ class Item extends Model
     {
         return $this->belongsTo(Vendor::class, 'vendor_id', 'vendor_id');
     }
+    public function files()
+    {
+        return $this->morphMany(ItemFile::class, 'fileable');
+    }
 }

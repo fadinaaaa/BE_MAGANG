@@ -12,15 +12,23 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('ahs', function (Blueprint $table) {
-            $table->id('ahs_id'); // ID AHS
-            $table->string('ahs'); // Nama AHS
-            $table->string('deskripsi'); // Deskripsi
-            $table->string('satuan'); // Satuan
-            $table->string('provinsi'); // Diubah dari wilayah
-            $table->string('kab'); // Ditambahkan
-            $table->year('tahun'); // Tahun
-            $table->decimal('harga_pokok_total', 15, 2); // Harga Pokok Total
+            $table->id('ahs_id');
+            $table->string('ahs');
+            $table->string('deskripsi');
+            $table->string('merek')->nullable();
+            $table->string('satuan');
+            $table->unsignedBigInteger('vendor_id')->nullable();
+            $table->string('provinsi');
+            $table->string('kab');
+            $table->year('tahun');
+            $table->decimal('harga_pokok_total', 15, 2);
+            $table->string('spesifikasi')->nullable();
             $table->timestamps();
+
+            $table->foreign('vendor_id')
+                ->references('vendor_id')
+                ->on('vendors')
+                ->onDelete('cascade');
         });
     }
 

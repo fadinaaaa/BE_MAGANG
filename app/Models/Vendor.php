@@ -40,4 +40,5 @@ class Vendor extends Model
     {
         return $this->hasMany(Item::class, 'vendor_id', 'vendor_id');
     }
+    
 }

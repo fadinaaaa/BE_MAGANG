@@ -19,7 +19,7 @@ class AhsItem extends Model
         'ahs_id',
         'item_id',
         'uraian',
-        'satuan',
+        'satuan',   
         'volume',
         'hpp',
         'jumlah',
