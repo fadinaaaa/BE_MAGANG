@@ -24,22 +24,37 @@ class VendorController extends Controller
     {
         $query = Vendor::query();
 
-        // filter berdasarkan wilayah
+        // === [TAMBAHAN] LOGIKA PENCARIAN (SEARCH) ===
+        // Ini menangkap parameter ?search=... dari frontend
+        if ($request->has('search') && !empty($request->search)) {
+            $searchTerm = $request->search;
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('vendor_name', 'LIKE', '%' . $searchTerm . '%')
+                  ->orWhere('vendor_no', 'LIKE', '%' . $searchTerm . '%')
+                  ->orWhere('contact_name', 'LIKE', '%' . $searchTerm . '%')
+                  ->orWhere('contact_no', 'LIKE', '%' . $searchTerm . '%')
+                  ->orWhere('email', 'LIKE', '%' . $searchTerm . '%');
+            });
+        }
+        // ============================================
+
+        // filter berdasarkan wilayah (KODE ASLI TETAP ADA)
         if ($request->has('provinsi') && !empty($request->provinsi)) {
             $query->where('provinsi', $request->provinsi);
         }
 
-        // filter berdasarkan kab
+        // filter berdasarkan kab (KODE ASLI TETAP ADA)
         if ($request->has('kab') && !empty($request->kab)) {
             $query->where('kab', $request->kab);
         }
 
-        // filter berdasarkan tahun
+        // filter berdasarkan tahun (KODE ASLI TETAP ADA)
         if ($request->has('tahun') && !empty($request->tahun)) {
             $query->where('tahun', $request->tahun);
         }
 
-        $vendors = $query->get();
+        // Mengambil data (Ditambah latest agar data baru muncul di atas)
+        $vendors = $query->latest('vendor_id')->get();
 
         return response()->json($vendors);
     }

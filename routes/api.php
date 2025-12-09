@@ -21,10 +21,12 @@ Route::get('/items/export', [ItemController::class, 'export']);
 Route::get('/items', [ItemController::class, 'index']);
 Route::post('/items', [ItemController::class, 'store']);
 Route::get('/items/{id}', [ItemController::class, 'show']);
+Route::get('/items/next-id', [ItemController::class, 'getNextId']);
 Route::put('/items/{id}', [ItemController::class, 'update']);
 Route::delete('/items/{id}', [ItemController::class, 'destroy']);
 Route::get('/items/template/download', [ItemController::class, 'downloadTemplate']);
 Route::post('items/import', [ItemController::class, 'import'])->name('items.import');
+Route::apiResource('items',ItemController::class);
 
 
 // Vendor

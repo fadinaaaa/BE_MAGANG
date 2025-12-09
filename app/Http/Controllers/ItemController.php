@@ -22,6 +22,11 @@ class ItemController extends Controller
     /**
      * Ambil semua data Item dengan filter.
      */
+    public function getNextId()
+    {
+        $nextId = $this->generateNewItemNo(); // Menggunakan fungsi private yang sudah ada
+        return response()->json(['next_id' => $nextId]);
+    }
     public function index(Request $request)
     {
         // ... (Tidak ada perubahan di sini)
