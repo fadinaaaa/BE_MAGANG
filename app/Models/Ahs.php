@@ -20,7 +20,7 @@ class Ahs extends Model
         'deskripsi',
         'merek',
         'satuan',
-        'vendor',
+        'vendor_id',
         'provinsi', // Ditambahkan
         'kab', // Menggantikan 'wilayah'
         'tahun',

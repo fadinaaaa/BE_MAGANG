@@ -22,6 +22,9 @@ return new class extends Migration
             $table->string('kab');
             $table->year('tahun');
             $table->decimal('harga_pokok_total', 15, 2);
+            $table->string('produk_foto')->nullable();
+            $table->text('produk_deskripsi')->nullable();
+            $table->string('produk_dokumen')->nullable();
             $table->string('spesifikasi')->nullable();
             $table->timestamps();
 

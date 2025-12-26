@@ -19,21 +19,15 @@ use Maatwebsite\Excel\Excel as ExcelFormat;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
 use App\Models\ItemFile;
+use Symfony\Component\HttpFoundation\Response;
 
 class ItemController extends Controller
 {
     /**
      * Ambil semua data Item dengan filter.
      */
-    public function getNextId()
-    {
-        $nextId = $this->generateNewItemNo(); // Menggunakan fungsi private yang sudah ada
-        return response()->json(['next_id' => $nextId]);
-    }
     public function index(Request $request)
     {
-        // ... (Tidak ada perubahan di sini)
-
         $request->validate([
             'provinsi' => 'nullable|string|max:255',
             'kab'      => 'nullable|string|max:255',
@@ -41,29 +35,31 @@ class ItemController extends Controller
             'item_no'  => 'nullable|string',
         ]);
 
-        $query = Item::with('vendor');
+        $query = Item::with([
+            'vendor',
+            'gambar',   // morphMany file_type = gambar
+            'dokumen',  // morphMany file_type = dokumen
+        ]);
 
         $query->when($request->filled('provinsi'), function ($q) use ($request) {
-            return $q->where('provinsi', $request->provinsi);
+            $q->where('provinsi', $request->provinsi);
         });
 
         $query->when($request->filled('kab'), function ($q) use ($request) {
-            return $q->where('kab', $request->kab);
+            $q->where('kab', $request->kab);
         });
 
         $query->when($request->filled('tahun'), function ($q) use ($request) {
-            return $q->where('tahun', $request->tahun);
+            $q->where('tahun', $request->tahun);
         });
 
         $query->when($request->filled('item_no'), function ($q) use ($request) {
-            return $q->where('item_no', 'like', '%' . $request->item_no . '%');
+            $q->where('item_no', 'like', '%' . $request->item_no . '%');
         });
-
-        $items = $query->get();
 
         return response()->json([
             'success' => true,
-            'data'    => $items,
+            'data'    => $query->get(),
         ]);
     }
     public function store(Request $request)
@@ -105,6 +101,7 @@ class ItemController extends Controller
 
             // Data Item
             $dataToCreate = $validated;
+            unset($dataToCreate['item_id']);
             $dataToCreate['vendor_id'] = $vendorId;
             unset($dataToCreate['vendor_no']);
 
@@ -133,13 +130,13 @@ class ItemController extends Controller
             if ($request->hasFile('produk_foto')) {
                 foreach ($request->file('produk_foto') as $foto) {
 
-                    $path = $foto->store('uploads/foto', 'public');
+                    $path = $foto->store('uploads/gambar', 'public');
 
                     ItemFile::create([
                         'fileable_id'   => $item->item_id,   // FIXED !!!
                         'fileable_type' => Item::class,
                         'file_path'     => $path,
-                        'file_type'     => 'foto'            // FIXED !!!
+                        'file_type'     => 'gambar'            // FIXED !!!
                     ]);
                 }
             }
@@ -249,13 +246,13 @@ class ItemController extends Controller
 
             foreach ($request->file('produk_foto') as $foto) {
 
-                $path = $foto->store('uploads/foto', 'public');
+                $path = $foto->store('uploads/gambar', 'public');
 
                 ItemFile::create([
                     'fileable_id'   => $item->item_id,   // FIXED !!!
                     'fileable_type' => Item::class,
                     'file_path'     => $path,
-                    'file_type'     => 'foto'
+                    'file_type'     => 'gambar'
                 ]);
             }
         }
@@ -547,17 +544,18 @@ class ItemController extends Controller
      */
     private function generateNewItemNo()
     {
-        $lastItem = Item::latest('item_id')->first();
-        $newIdNumber = 1;
+        $lastItemNo = Item::whereNotNull('item_no')
+            ->orderByRaw("CAST(SUBSTRING(item_no, 3) AS UNSIGNED) DESC")
+            ->value('item_no');
 
-        if ($lastItem && isset($lastItem->item_no)) {
-            $lastIdNumber = intval(substr($lastItem->item_no, 2));
-            $newIdNumber = $lastIdNumber + 1;
+        $nextNumber = 1;
+
+        if ($lastItemNo) {
+            $nextNumber = (int) substr($lastItemNo, 2) + 1;
         }
 
-        return 'M_' . str_pad($newIdNumber, 3, '0', STR_PAD_LEFT);
+        return 'M_' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
     }
-
     /**
      * Mengelola upload file dan mengembalikan path-nya.
      */
@@ -570,5 +568,43 @@ class ItemController extends Controller
             return $file->storeAs($directory, $originalFileName, 'public');
         }
         return null;
+    }
+    public function previewFoto($id)
+    {
+        $file = ItemFile::findOrFail($id);
+
+        // Pastikan hanya file foto
+        if ($file->file_type !== 'foto') {
+            abort(404);
+        }
+
+        $path = storage_path('app/public/' . $file->file_path);
+
+        if (!file_exists($path)) {
+            abort(404);
+        }
+
+        return response()->file($path, [
+            'Content-Disposition' => 'inline'
+        ]);
+    }
+
+    public function previewDokumen($id)
+    {
+        $file = ItemFile::findOrFail($id);
+
+        if ($file->file_type !== 'dokumen') {
+            abort(404);
+        }
+
+        $path = storage_path('app/public/' . $file->file_path);
+
+        if (!file_exists($path)) {
+            abort(404);
+        }
+
+        return response()->file($path, [
+            'Content-Disposition' => 'inline'
+        ]);
     }
 }

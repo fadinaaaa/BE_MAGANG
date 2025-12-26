@@ -47,4 +47,16 @@ class Item extends Model
     {
         return $this->morphMany(ItemFile::class, 'fileable');
     }
+
+    public function gambar()
+    {
+        return $this->morphMany(ItemFile::class, 'fileable')
+            ->where('file_type', 'gambar');
+    }
+
+    public function dokumen()
+    {
+        return $this->morphMany(ItemFile::class, 'fileable')
+            ->where('file_type', 'dokumen');
+    }
 }

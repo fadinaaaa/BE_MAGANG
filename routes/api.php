@@ -27,6 +27,7 @@ Route::delete('/items/{id}', [ItemController::class, 'destroy']);
 Route::get('/items/template/download', [ItemController::class, 'downloadTemplate']);
 Route::post('items/import', [ItemController::class, 'import'])->name('items.import');
 Route::apiResource('items',ItemController::class);
+Route::get('/dokumen/preview/{id}', [ItemController::class, 'previewDokumen']);
 
 
 // Vendor

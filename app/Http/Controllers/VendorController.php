@@ -54,7 +54,7 @@ class VendorController extends Controller
         }
 
         // Mengambil data (Ditambah latest agar data baru muncul di atas)
-        $vendors = $query->latest('vendor_id')->get();
+        $vendors = $query->oldest('vendor_id')->get();
 
         return response()->json($vendors);
     }

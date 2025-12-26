@@ -25,6 +25,7 @@ class AhsWithItemsController extends Controller
             $data = Ahs::with([
                 'items.item',  // relasi AhsItem → Item
                 'files',       // foto & dokumen (polymorphic)
+                'vendor'
             ])
                 ->orderBy('ahs_id', 'desc')
                 ->get()
@@ -42,6 +43,8 @@ class AhsWithItemsController extends Controller
                         'kab'        => $ahs->kab,
                         'tahun'      => $ahs->tahun,
                         'harga_pokok_total' => $ahs->harga_pokok_total,
+                        'merek' => $ahs->merek,
+                        'vendor' => $ahs->vendor ?? [],
 
                         // === ITEM HEADER AHS ===
                         'item_ahs' => $itemAhs ? [
@@ -54,8 +57,8 @@ class AhsWithItemsController extends Controller
                         ] : null,
 
                         // === FOTO ===
-                        'foto' => $ahs->files
-                            ->where('file_type', 'foto')
+                        'gambar' => $ahs->files
+                            ->where('file_type', 'gambar')
                             ->map(fn($f) => asset('storage/' . $f->file_path))
                             ->values(),
 
@@ -72,7 +75,7 @@ class AhsWithItemsController extends Controller
                                 'item_no' => $it->item->item_no ?? null,
                                 'uraian'  => $it->uraian,
                                 'satuan'  => $it->satuan,
-                                'volume'  => $it->volume,
+                                'volume'  => (float)    $it->volume,
                                 'hpp'     => $it->hpp,
                                 'jumlah'  => $it->jumlah,
                             ];
@@ -143,7 +146,7 @@ class AhsWithItemsController extends Controller
     //             'provinsi'  => 'required|string',
     //             'kab'       => 'required|string',
     //             'tahun'     => 'required|integer',
-    //             'produk_foto' => 'required|file',
+    //             'produk_gambar' => 'required|file',
     //             'produk_deskripsi' => 'required|string',
     //             'produk_dokumen' => 'required|file',
     //             'spesifikasi' => 'required|string',
@@ -246,11 +249,11 @@ class AhsWithItemsController extends Controller
         try {
             $request->validate([
                 'deskripsi' => 'required|string',
+                'merek'     => 'nullable|string',
                 'satuan'    => 'required|string',
                 'provinsi'  => 'required|string',
                 'kab'       => 'required|string',
                 'tahun'     => 'required|string',
-                'merek' => 'nullable|string',
                 'vendor_no' => 'nullable|string|exists:vendors,vendor_no',
 
 
@@ -347,7 +350,7 @@ class AhsWithItemsController extends Controller
                 foreach ($request->file('produk_foto') as $file) {
 
                     $filename = time() . '_' . preg_replace('/\s+/', '_', $file->getClientOriginalName());
-                    $path = $file->storeAs('uploads/foto', $filename, 'public');
+                    $path = $file->storeAs('uploads/gambar', $filename, 'public');
 
                     $uploadedPaths[] = $path;
 
@@ -355,7 +358,7 @@ class AhsWithItemsController extends Controller
                         'fileable_id'   => $add_ahs->ahs_id,     // 🔥 ini penting
                         'fileable_type' => Ahs::class,       // 🔥 ini penting
                         'file_path'     => $path,
-                        'file_type'     => 'foto',
+                        'file_type'     => 'gambar',
                     ]);
                 }
             }
@@ -431,6 +434,12 @@ class AhsWithItemsController extends Controller
                 'items'     => 'required|array',
                 'items.*.item_no' => 'required|string|exists:items,item_no',
                 'items.*.volume'  => 'required|numeric|min:0.01',
+            ], [
+                'deskripsi.required' => 'Masukkan Deskripsi AHS',
+                'satuan.required'    => 'Masukkan Satuan AHS',
+                'provinsi.required'  => 'Masukkan Provinsi',
+                'kab.required'       => 'Masukkan Kabupaten / Kota',
+                'tahun.required'     => 'Masukkan Tahun',
             ]);
 
             // AMBIL DATA AHS
@@ -444,6 +453,8 @@ class AhsWithItemsController extends Controller
                 'provinsi'  => $request->provinsi,
                 'kab'       => $request->kab,
                 'tahun'     => $request->tahun,
+                'vendor_id'     => $request->vendor_id,
+                'merek'     => $request->merek,
             ]);
 
             // HAPUS DETAIL LAMA
@@ -512,7 +523,7 @@ class AhsWithItemsController extends Controller
             if ($request->hasFile('produk_foto')) {
                 foreach ($request->file('produk_foto') as $file) {
                     $filename = time() . '_' . preg_replace('/\s+/', '_', $file->getClientOriginalName());
-                    $path = $file->storeAs('uploads/foto', $filename, 'public');
+                    $path = $file->storeAs('uploads/gambar', $filename, 'public');
 
                     $uploadedPaths[] = $path;
 
@@ -520,7 +531,7 @@ class AhsWithItemsController extends Controller
                         'fileable_id'   => $item_ahs->item_id,
                         'fileable_type' => Item::class,
                         'file_path'     => $path,
-                        'file_type'     => 'foto',
+                        'file_type'     => 'gambar',
                     ]);
                 }
             }
@@ -544,15 +555,7 @@ class AhsWithItemsController extends Controller
 
             DB::commit();
             return response()->json(['success' => true, 'message' => 'Data AHS berhasil diperbarui']);
-        } catch (ValidationException $e) {
-            DB::rollBack();
-
-            foreach ($uploadedPaths as $p) {
-                Storage::disk('public')->delete($p);
-            }
-
-            return response()->json(['success' => false, 'message' => $e->errors()], 422);
-        } catch (\Throwable $e) {
+        }  catch (\Throwable $e) {
             DB::rollBack();
 
             foreach ($uploadedPaths as $p) {
@@ -561,8 +564,7 @@ class AhsWithItemsController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan saat update',
-                'error'   => $e->getMessage()
+                'message' => $e->getMessage()
             ], 500);
         }
     }

@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('fileable_type'); // App\Models\Item atau App\Models\Ahs
             $table->string('file_path');
             $table->string('file_type')->nullable(); // foto / dokumen
+            $table->string('original_name')->nullable();
             $table->timestamps();
 
             $table->index(['fileable_id', 'fileable_type']);
